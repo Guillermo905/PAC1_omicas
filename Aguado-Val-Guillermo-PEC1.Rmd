@@ -1,0 +1,331 @@
+---
+title: "Informe de la PEC1"
+subtitle: "Ciencias ómicas"
+author: "Guillermo Aguado Val"
+date: '`r format(Sys.Date(), "%e de %B, %Y")`'
+table_caption: true
+csl: apa.csl
+bibliography: bibliografia.bib
+header-includes:
+  - \usepackage[spanish]{babel}
+output:
+  pdf_document:
+    fig_caption: true
+    toc: true
+    number_sections: true
+    latex_engine: xelatex
+
+---
+
+\newpage
+
+<style>
+body {
+text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+                      include = FALSE,
+                      warning = FALSE,
+                      error = FALSE,
+                      fig.height = 6,
+                      fig.width = 10)
+library(knitr)
+```
+
+**************************************************************
+PUNTOS A SEGUIR, ELIMINAR DESPUES:
+* dETERMINAR ANALISIS REALIZADOS EN LA ASIGNATURA PARA APLICAR AQUÍ
+* DETERMINAR OBJETIVO UNA VEZ CONOCIDO LOS DIFERENTES ANALISIS
+
+
++ EXTENSIÓN MÁXIMA DE 10-20 PÁGINAS, DOCUMENTO CLARO Y CONCISO
+
+
+DOCUEMNTOS QUE SE DEBEN CREAR PARA GITHUB:
+* INFORME (CON URL A GITHUB DE MANERA CLARA, ENTREGA EN CANVAS SOLO EL INFORME)
+* objeto contenedor con los datos y los metadatos en formato binario
+(.Rda)
+* CODIGO R CON LA EXPLORACION DE LOS DATOS
+* DATOS EN FORMATO TEXTO
+* METADATOS DEL DATASET EN UN ARCHIVO MARKDOWN
+
+********************************************************************
+
+*******************************************************************
+CRITERIOS EVALUACIÓN:
+* dEFINICIÓN DE OBJETIVOS
+* COMO SE HA ORGANZIADO EL ANALISIS, OBTENIDO LOS DATOS, PREPARACIÓN DE ARCHIVOS
+* DOMINIO HERRAMIENTAS (R, RMARKDOWN, BIOCONDUCTOR Y GITHUB)
+* INTERPRETACIÓN RESULTADOS
+* DISCUTIR POSIBLES LIMITACIONES DEL ESTUDIO
+* DOCUMENTO EN FORMATO LEGIBLE Y BIEN ORGANIZADO
+********************************************************************
+
+
+
+
+*******************************************************************
+
+Posibles objetivos:
+++ Explorar dataset o analisis exploratorios, revisar efecto Batch (mirar como se parecen las diferentes muestras a través de PCA (revisar apuntes en web y mixomics del cap 1 al 3) y análisis jerarquico)
++ plotar casos (hist, boxplot, pca)
++ Variabilidad de genes a través de sd
++ FastQC comprobar calidad de la secuencia
+++ Aplicar visión global del estudio o del proceso
++++ Revisar criterio de corrección en carpeta "en curso"
+++ Pensar si estás haciendo preprocesoda
+
+*******************************************************************
+# Abstract
+
+En el presente trabajo se explora el dataset proveniente del estudio de @chan_1h-nmr_2016, en el que se estudia el cáncer gástrico a través de 149 metabolitos. Para ello, se utiliza el paquete *SummarizedExperiment* [@SummarizedExperiment] y *POMA* [@POMA].Las exploraciones aplicadas han sido PCA, k-means y agrupaciones jerárquicas. 
+
+Los archivos generados se pueden encontrar en la siguiente dirección de github: 
+
+# Objetivos del estudio
+
+En este trabajo se va a utilizar el dataset perteneciente al estudio realizado de @chan_1h-nmr_2016 en el que se estudia la metabolómica del cáncer gástrico. Los objetivos son:
+
++ Utilizar el paquete *SummarizedExperiment* del repositorio Bioconductor
++ Explorar y evaluar el dataset a través de PCA y análisis jerárquico.
+
+En el dataset se recogen variables relacionadas con el cáncer gástrico. Las variables más desatacables son:
+
++ *Name**: Es el número de referencia individual para cada metabolito. Están numerados desde M1 hasta M149.
++ *Perc_missing**: Porcentaje de NAs para cada metabolito.
++ *QC_RSD**: Medidor de calidad del metabolito a través de todas las muestras.
++ *Class**: Indica el lugar de origen de la muestra para cada individuo. Las abreviaciones corresponden a: GC = Cáncer Gástrico, BN = Tumor Benigno, HE = Healthy Control, QC = Grupo control.
++ *SampleType**: Indica si la muestra pertenece al grupo control. QC: grup control y Sample: muestra (puede ser GC, BN, o HE)
+
+https://cimcb.github.io/MetabWorkflowTutorial/Tutorial1.html
+https://bioconductor.org/packages/release/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html
+
+
+
+
+
+# Material y métodos 
+
+```{r cargar-datos}
+# Cargamos el dataset
+datos = read.csv("GastricCancer_NMR.csv", dec = ",")
+datos = datos[, -1]
+peak = read.csv("GastricCancer_NMR_peak.csv", dec = ",")
+peak = peak[,-1]
+```
+
+El dataset está en formato *xlsx*, por lo tanto, se transforma a formato *csv*. A continuación, se carga en el programa R [@R]. De los datos se obtiene dos matrices, una de dimensiones `r dim(datos)` con los datos de cada muestra y su concentración de metabolitos (dataset 0), y otra segunda matriz de dimensiones `r dim(peak)` que contiene  los metadatos de cada metabolito. (dataset 3)
+
+```{r check-names}
+table(names(datos)[-c(1:3)] == peak[,1])
+
+```
+
+
+Primero, se comprueba que el nombre de cada metabolito es compartido entre el que recoge la información de las muestras (dataset 0) con el que contiene los metadatos de los metabolitos (dataset 3). Luego, se divide el dataset 0 en dos. Uno  contendrá la información de las muestras con los metabolitos (dataset 1) y otro las variables *sampleType* y *Class* (dataset 2).
+
+```{r preparar-datos}
+metadatos_datos = datos[, c(1:3)] # Guarda la información (metadatos) de las muestras
+datos2 = datos[, -c(2,3)] # Elimina metadatos de los datos principales
+nombres_col =  datos[,1] # Guarda los nombres de las columnas 
+datos2 = datos2[,-1] # Se elimina la primera columna porque al transponer lo transforma todo en texto
+t_datos = data.frame(t(datos2)) # Se transpone y se guarda como dataframe
+names(t_datos) <- nombres_col # Se cambia el nombre de las columnas
+
+
+```
+
+
+Segundo, se carga la librería *SummarizedExperiment* [@SummarizedExperiment] del proyecto Bioconductor [@Bioconductor] para introducir los diferentes datasets. Es importante remarcar que la clase *SummarizedExperiment* necesita que las muestras estén en las columnas, haciendo necesario transponer la matriz de datos (dataset 1). A continuación, se genera un objeto a partir de la clase *SummarizedExperiment* que recoge los datsasets en los siguientes argumentos: 
+
++ *assays*: Dataset 1, recoge la concentración de metabolitos para cada muestra.
++ *rowData* Dataset 3, corresponde a los metadatos de los metabolitos.
++ *colData*: Dataset 2, contiene información sobre el origen de la muestra (variables *Class* y *SampleTipe*).
+
+A continuación se muestra el objeto generado por la clase *SummarizedExperiment*:
+
+```{r}
+library(SummarizedExperiment)
+```
+
+```{r se-output, include=TRUE}
+# Se genera el objeto SummarizedExperiment
+se = SummarizedExperiment(assays = list(counts = t_datos),
+                          rowData = peak,
+                          colData = metadatos_datos)
+#library(tidySummarizedExperiment) # Cambia la forma de ver se
+#options("restore_SummarizedExperiment_show" = TRUE) # Velve al formato original
+print(se)
+```
+
+
+```{r contar-NAs}
+NAs = apply(assay(se), 2, is.na)
+sumNAs = apply(NAs,2,sum)
+max(sumNAs)
+length(sumNAs) - dim(assay(se))[2]
+```
+
+Una vez cargados los datos se explora la cantidad de NAs que hay para cada individuo y se observa que el número máximo es de `r max(sumNAs)`, el cual corresponde a la muestra `r which.max(sumNAs)`.
+
+Como se va a trabajar con el paquete POMA [@POMA] es necesario eliminar los NAs para su correcto funcionamineto. En consecuencia, se va a utilizar el método k-nearest neighbor que substituye cada NA por un valor cercano en relación a cada como se situa espacialmente cada muestra. Además, en el caso que haya en una muestra con 21 o más NAs será eliminada porque significa que falta el 15% de la información. 
+
+```{r cargarPoma}
+library(POMA)
+library(ggtext)
+library(magrittr)
+```
+
+
+```{r eliminar-NAs}
+# Substitución NAs con método K-NN
+se_noNAs <- se %>% PomaImpute(method = "knn", remove_na = TRUE, cutoff = 21)
+#rowData(se_noNAs) <- peak # No se puede aplicar porque a elimina las variables de peak
+```
+
+
+Luego, se procede a realizar una exploración univariable a través de boxplot con el package POMA [@POMA]. Además, se comparará visualmente los datos normalizados y sin normalizar debido a la alta  heterogeneidad que presentan. En la figura \label{fig:boxplot} se observa que el rango de los datos es muy amplio y hay datos que pueden ser posibles outliers. Por lo tanto, se hace una transformación de los datos a través del método de Pareto con la finalidad de reducir la importancia de valores grandes, mantiene la estructura y centra los datos en el valor 0 [@van_den_berg_centering_2006].
+
+```{r boxplot, fig.cap="Boxplot sin normalizar de las muestras.", echo=FALSE ,include=TRUE, fig.show = 'hold'}
+
+library(ggplot2)
+# Exploración inicial de los datos
+PomaBoxplots(se_noNAs, x = "features") + labs(x="Variables", title = "Variables sin transformar") + theme(axis.text.x = element_text(size = 6))
+
+# Transformación de los datos 
+sePareto <- se_noNAs %>% PomaNorm(method = "log_pareto")
+
+# Gráfica con datos normalizados 
+PomaBoxplots(sePareto, x = "features") + labs(x="Variables", title = "Variables transformadas") + theme(axis.text.x = element_text(size = 6))
+```
+
+```{r guardar-datos, eval=FALSE, include=FALSE}
+# Guarda el archivo modificado en formato binario de SummarizExperiment
+save(sePareto, file='sePareto.rda')
+```
+
+
+Como en el gráfico de cajas se observan posibles valores extremos o outliers se decide eliminarlos de los datos a través de la función *PomaOutliers* que utiliza el método MDS. Eliminando del dataset un total de `r dim(assay(sePareto))[2] - dim(assay(se_clean$data))[2]` muestras.
+
+```{r outliers}
+sePareto$Class <- as.factor(sePareto$Class)
+sePareto$SampleType <- as.factor(sePareto$SampleType)
+se2 = sePareto
+colData(se2) <- colData(se2)[, c(3,2)]
+se_clean <- PomaOutliers(data = se2)
+```
+
+En la exploración de los datos se realiza una correlación entre las diferentes variables para conocer el nivel de correlación a través de la función *PomaCorr* del paquete @POMA utilizando el método de Spearman porque es más robusto delante de outliers o valores grandes.
+
+```{r generar-cor}
+correlacion <- se_clean$data %>% PomaCorr(method = "spearman")
+
+```
+
+
+A posteriori, se realizará una PCA a través del paquete  @POMA en el que se obvia la opción de centrar los datos, porque ya se centraron durante el análisis anterior, y se diferencia a los individuos en función de la clase a la que pertenecen. El número de componentes principales incluidos corresponde al número de variables. 
+
+A nivel de técnicias de agrupación se van a realizar dos técnicas no supervisadas. La primera es k-means a través del paquete @POMA, en la que se visualizará la agrupación de individuos en 3 y 4 núcleos. Ya que esto coincide con las diferentes clases de muestras que contiene el dataset. La otra técnica va a ser la clasificación a través de un dendograma o cluster jerárquico a través del paquete *stats* de @R, que recoge la función *hclust*. Se utilitzará como matriz de distancias la generada para las correlaciones.
+
+
+
+
+
+***************************************************
++ Origen y tipo de datos
++ Herramientas informáticas y bioinformáticas utilizadas
++ Procedimiento general del análisis
++ métodos utilizados
++ extensión 2 páginas máximo
+*******************************************************
+
+# Resutlados
+
+```{r p-value-corr, tab.cap="Número de relaciones con p-values significativo entre metabolitos. True: *p-value* singnificativo; False: *p-value* no significativo."}
+tabla_cor = data.frame(table(correlacion$correlations$pvalue <= 0.05))
+kable(tabla_cor)
+```
+
+En la exploración de la correlación de las diferentes variables se observa que la mayoría de metabolitos tienen una correlación positiva entre ellos (Figura \label{fig:correlacion}). Si se explora los *p-value* se observa que hay `r tabla_cor[2,2]` pares de metabolitos con una correlación significativa entre ellos. En cambio, `r tabla_cor[1,2]` pares de metabolitos no tienen un valor significativo.
+
+```{r correlacion, fig.cap="Heatmap donde se correlacionan los diferentes metabolitos", echo=TRUE ,include=TRUE}
+correlacion$corrplot
+```
+
+
+
+
+
+
+```{r barplotPCA, fig.cap="Gráfico de barras con la acumulación de la varianza de cada componente principal.", fig.height=6, echo=FALSE ,include=TRUE}
+# PCA. No se centran los datos porque ya estan centrados previamente
+PCA = PomaPCA(data = se_clean$data, center = FALSE, ncomp = 135, labels = FALSE)
+etiq = PCA$eigenvalues$comp
+valor_vector = PCA$eigenvalues$var_exp
+barplot(valor_vector[1:20], names.arg = etiq[1:20], main = "Variabilidad acumulada en PC", xlab = "Componentes principales", ylab = "Eigenvalues")
+```
+
+La PCA muestra que la mayoría de la variabilidad está retenida en las dos primeras componentes principales (Figura \label{fig:barplotPCA}), a pesar de que  solo recogen el `r valor_vector[1] + valor_vector[2]`% de la varianza explicada. 
+
+Al analizar conjuntamente las dos primeras componentes principales se observa en el centro el grupo de control, mientras que el resto de la muestra está más distribuido en el espacio de las dos primeras componentes principales. Sin embargo, en el primer componente parece que las muestras analizadas con tumor benigno se sitúen a la derecha de la gráfica mientras que el resto de casos ocupan el resto del eje. Por otro lado, en el segundo componente se diferencie ligeramente el grupo de individuos sanos (situados mayoritariamente en la mitad inferior de la gráfica) respecto al grupo que presenta un tumor, ya sea maligno o benigno (mayoritariamente en la mitad superior de la gráfica). 
+
+```{r PCA-clase, fig.cap="PCA de los dos primeros componentes principales. En color los diferentes grupos que se han incluido en el estudio: GC = Cáncer Gástrico, BN = Tumor Benigno, HE = Healthy Control, QC = Grupo control.", echo=FALSE, include=TRUE}
+library(ggplot2)
+Clases = se_clean$data$class
+ggplot(data = PCA$factors, aes(PC1, PC2, colour = Clases)) + geom_point() + labs(x=paste("PC1 (",valor_vector[1], "%)"), y= paste("PC2 (",valor_vector[2],"%)"))
+```
+
+Al explorar las posibles agrupaciones a través del método de k-means se observa la diferenciación de tres grupos (número óptimo de agrupaciones), pero no parece que ofrezca información relevante para el estudio que se está realizando porque no se observa ninguna asociación con los datos obtenidos a través de la PCA. En cambio, si se realiza la agrupación con 4 núcleos el grupo control está bastante bien identificado, mientras que la diferenciación entre grupos comentada anteriormente en el eje del primer componente principal parece que este aquí más definida (Figura \label{fig:k-means}). 
+
+```{r k-means, fig.cap="Agrupación a través del método k-means con 3 y 4 núcleos", , echo=FALSE, include=TRUE}
+cluster = PomaClust(se_clean$data, k_max = sqrt(135), show_clusters = TRUE)
+cluster$mds_plot
+cluster4 = PomaClust(se_clean$data, k=4)
+cluster4$mds_plot
+```
+
+A través de los dendogramas también se puede analizar cómo se agrupan los datos. En el caso de la agrupación a través de las muestras (Figura \label{fig:hcluster-muestras}) se observan 4 grupos que se podrían corresponder a las diferentes clases de muestras que hay. Por lo tanto, el número de grupos podría coincidir con el número de clases que hay. En cambio, en el caso de los metabolitos, se observa la formación de 4 o 5 grupos.
+
+```{r hcluster-muestras, fig.cap="Dendograma en el que se agrupan las diferentes muestras", echo=FALSE, include=TRUE}
+corr2 = cor(t(assay(se_clean$data)), method = "spearman")
+distancias_muestras = dist(t(assay(se_clean$data)))
+distancias_metabo = dist(assay(se_clean$data))
+hc_muestras = hclust(distancias_muestras, method="average")
+library(ggdendro)
+ggdendrogram(hc_muestras)+labs(title = "Agrupación por individuos") + theme(axis.text.x = element_text(size = 6))
+
+```
+
+```{r hcluster-metabo, fig.cap="Dendograma en el que se agrupan las diferentes metabolitos", echo=FALSE, include=TRUE}
+hc_metabo = hclust(distancias_metabo, method = "average")
+ggdendrogram(hc_metabo)+labs(title = "Agrupación por metabolitos") + theme(axis.text.x = element_text(size = 6))
+```
+
+************************************************
++ Responden a las preguntas plantadas
++ Texto legible y fácil de seguir
++ Plantearse que código de tablas y gráficos de R se debe mostrar en el informe
++ Extensión de 5 a 10 páginas
+***********************************************
+
+# Discusión
+
+El estudio del metaboloma significa la inclusión de varios datasets que tiene que funcionar de manera sincronizada a medida que se vayan eliminando variables o individuos de la muestra. En esto, el package *SummarizedExperiment* [@SummarizedExperiment] juega un papel importante al no permitir que los datos se desordenen. Sin embargo, el manejo del programa para el usuario no es muy amigable y dificulta algunos análisis al guardar en las columnas las muestras. Por otro lado, el paquete *POMA* [@POMA] permite un manejo muy fácil de los datos para hacer los diferentes análisis y transformación de los datos. Sin embargo, la perdida de las variables guardadas en el atributo *rowdata* podría perjudicar análisis diferentes a los hechos en este trabajo. Por otro lado, a pesar de la facilidad que presenta, tiene el inconveniente que solo puede clasificar individuos si la primera columna de los metadatos (dataset 2) es de tipo factor, no permitiendo al usuario escoger otras columnas de interés. Esto hace necesario modificar el orden de las variables cada vez que se quiera valorar una varaible cualitativa diferente. Igualmente, en la actualización del 2 de noviembre de 2024 de la librería *POMA* aparece el argumento *outcome* que permite marcar la variable de interés en la versión 3.20 de Bioconductor. En cambio, la versión instalada para la realización del trabajo es la versión 3.19 y, en consecuncia, no se ha podido utilizar esta opción.
+
+En relación con los resultados obtenidos en las diferentes exploraciones, es importante tener en cuenta que parte de los resultados obtenidos depende de las transformaciones aplicadas en los datos. En consecuencia, hubiese sido conveniente probar otras transformaciones para ver si los resultados obtenidos variaban. Además, en este caso, a pesar de que se decidió eliminar los outliers a través del método MDS, hubiese sido conveniente analizar los individuos que tengan mucho peso o influencia en la muestra. 
+
+Por otro lado, tampoco se evaluó si las diferentes variables mostraban patrón de normalidad. Punto que puede modificar los resultados de las exploraciones. Por este motivo, en la correlación se decidió aplicar la correlación de Spearman en lugar de la de Pearson porque es más robusta, tanto en la presencia de outliers como en la posible falta de normalidad. 
+
+En las diferentes exploraciones realizadas, tanto en k-means como en los dendrogramas, se han podido observar diferentes agrupaciones de los datos. Para poder evidenciar la diferencia entre los grupos hubiese sido necesario aplicar algún test multivariante a los datos para ver si hay diferencias estadisticas entre las clases. También, hubiese sido una buena opción comprobar hasta que punto las diferentes clasificaciones coincidían con las clases que hay en el dataset.
+
+Para acabar, faltaría estudiar que metabolitos son más relevantes o muestran una mayor asociación con el cáncer gástrico. Para hacer esto sería necesario ver que correlación muestran los diferentes metabolitos con la presencia de la enfermedad. O mejor aún, la combinación de ellos. En consecuencia, sería necesario utilizar otro tipo de técnicas multivariantes que reduzcan el número de variables a parte de la PCA. Esto, por ejemplo, se podría examinar a través de una regresión lineal cualitativa utilizando como predictor la presencia de cáncer mientras se combina con técnicas que reduzcan el número de variables, por ejemplo: LASSO, Partial Least Squares (PLS), etc. 
+
+# Apéndice 1. Selección del número adecuado de grupos en clasificación k-means
+
+```{r optimal-k, fig.cap="Número óptimo de núcleos para k-means", echo=FALSE, include=TRUE}
+cluster$optimal_clusters_plot
+```
+
+# Bibliografía
