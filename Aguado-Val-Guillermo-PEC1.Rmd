@@ -8,8 +8,10 @@ csl: apa.csl
 bibliography: bibliografia.bib
 header-includes:
   - \usepackage[spanish]{babel}
-output:
-  pdf_document:
+
+output: 
+  bookdown::pdf_document2:
+    keep_tex: true
     fig_caption: true
     toc: true
     number_sections: true
@@ -30,59 +32,16 @@ knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
                       error = FALSE,
                       fig.height = 6,
-                      fig.width = 10)
+                      fig.width = 8)
 library(knitr)
 ```
 
-**************************************************************
-PUNTOS A SEGUIR, ELIMINAR DESPUES:
-* dETERMINAR ANALISIS REALIZADOS EN LA ASIGNATURA PARA APLICAR AQUÍ
-* DETERMINAR OBJETIVO UNA VEZ CONOCIDO LOS DIFERENTES ANALISIS
 
-
-+ EXTENSIÓN MÁXIMA DE 10-20 PÁGINAS, DOCUMENTO CLARO Y CONCISO
-
-
-DOCUEMNTOS QUE SE DEBEN CREAR PARA GITHUB:
-* INFORME (CON URL A GITHUB DE MANERA CLARA, ENTREGA EN CANVAS SOLO EL INFORME)
-* objeto contenedor con los datos y los metadatos en formato binario
-(.Rda)
-* CODIGO R CON LA EXPLORACION DE LOS DATOS
-* DATOS EN FORMATO TEXTO
-* METADATOS DEL DATASET EN UN ARCHIVO MARKDOWN
-
-********************************************************************
-
-*******************************************************************
-CRITERIOS EVALUACIÓN:
-* dEFINICIÓN DE OBJETIVOS
-* COMO SE HA ORGANZIADO EL ANALISIS, OBTENIDO LOS DATOS, PREPARACIÓN DE ARCHIVOS
-* DOMINIO HERRAMIENTAS (R, RMARKDOWN, BIOCONDUCTOR Y GITHUB)
-* INTERPRETACIÓN RESULTADOS
-* DISCUTIR POSIBLES LIMITACIONES DEL ESTUDIO
-* DOCUMENTO EN FORMATO LEGIBLE Y BIEN ORGANIZADO
-********************************************************************
-
-
-
-
-*******************************************************************
-
-Posibles objetivos:
-++ Explorar dataset o analisis exploratorios, revisar efecto Batch (mirar como se parecen las diferentes muestras a través de PCA (revisar apuntes en web y mixomics del cap 1 al 3) y análisis jerarquico)
-+ plotar casos (hist, boxplot, pca)
-+ Variabilidad de genes a través de sd
-+ FastQC comprobar calidad de la secuencia
-++ Aplicar visión global del estudio o del proceso
-+++ Revisar criterio de corrección en carpeta "en curso"
-++ Pensar si estás haciendo preprocesoda
-
-*******************************************************************
 # Abstract
 
 En el presente trabajo se explora el dataset proveniente del estudio de @chan_1h-nmr_2016, en el que se estudia el cáncer gástrico a través de 149 metabolitos. Para ello, se utiliza el paquete *SummarizedExperiment* [@SummarizedExperiment] y *POMA* [@POMA].Las exploraciones aplicadas han sido PCA, k-means y agrupaciones jerárquicas. 
 
-Los archivos generados se pueden encontrar en la siguiente dirección de github: 
+Los archivos generados se pueden encontrar en la siguiente dirección de github: <https://github.com/Guillermo905/PAC1_omicas>
 
 # Objetivos del estudio
 
@@ -93,17 +52,11 @@ En este trabajo se va a utilizar el dataset perteneciente al estudio realizado d
 
 En el dataset se recogen variables relacionadas con el cáncer gástrico. Las variables más desatacables son:
 
-+ *Name**: Es el número de referencia individual para cada metabolito. Están numerados desde M1 hasta M149.
-+ *Perc_missing**: Porcentaje de NAs para cada metabolito.
-+ *QC_RSD**: Medidor de calidad del metabolito a través de todas las muestras.
-+ *Class**: Indica el lugar de origen de la muestra para cada individuo. Las abreviaciones corresponden a: GC = Cáncer Gástrico, BN = Tumor Benigno, HE = Healthy Control, QC = Grupo control.
-+ *SampleType**: Indica si la muestra pertenece al grupo control. QC: grup control y Sample: muestra (puede ser GC, BN, o HE)
-
-https://cimcb.github.io/MetabWorkflowTutorial/Tutorial1.html
-https://bioconductor.org/packages/release/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html
-
-
-
++ **Name**: Es el número de referencia individual para cada metabolito. Están numerados desde M1 hasta M149.
++ **Perc_missing**: Porcentaje de NAs para cada metabolito.
++ **QC_RSD**: Medidor de calidad del metabolito a través de todas las muestras.
++ **Class**: Indica el lugar de origen de la muestra para cada individuo. Las abreviaciones corresponden a: GC = Cáncer Gástrico, BN = Tumor Benigno, HE = Healthy Control, QC = Grupo control.
++ **SampleType**: Indica si la muestra pertenece al grupo control. QC: grup control y Sample: muestra (puede ser GC, BN, o HE)
 
 
 # Material y métodos 
@@ -170,7 +123,7 @@ length(sumNAs) - dim(assay(se))[2]
 
 Una vez cargados los datos se explora la cantidad de NAs que hay para cada individuo y se observa que el número máximo es de `r max(sumNAs)`, el cual corresponde a la muestra `r which.max(sumNAs)`.
 
-Como se va a trabajar con el paquete POMA [@POMA] es necesario eliminar los NAs para su correcto funcionamineto. En consecuencia, se va a utilizar el método k-nearest neighbor que substituye cada NA por un valor cercano en relación a cada como se situa espacialmente cada muestra. Además, en el caso que haya en una muestra con 21 o más NAs será eliminada porque significa que falta el 15% de la información. 
+Como se va a trabajar con el paquete *POMA* [@POMA] es necesario eliminar los NAs para su correcto funcionamineto. En consecuencia, se va a utilizar el método k-nearest neighbor que substituye cada NA por un valor cercano en relación a cada como se situa espacialmente cada muestra. Además, en el caso que haya en una muestra con 21 o más NAs será eliminada porque significa que falta el 15% de la información. 
 
 ```{r cargarPoma}
 library(POMA)
@@ -186,9 +139,9 @@ se_noNAs <- se %>% PomaImpute(method = "knn", remove_na = TRUE, cutoff = 21)
 ```
 
 
-Luego, se procede a realizar una exploración univariable a través de boxplot con el package POMA [@POMA]. Además, se comparará visualmente los datos normalizados y sin normalizar debido a la alta  heterogeneidad que presentan. En la figura \label{fig:boxplot} se observa que el rango de los datos es muy amplio y hay datos que pueden ser posibles outliers. Por lo tanto, se hace una transformación de los datos a través del método de Pareto con la finalidad de reducir la importancia de valores grandes, mantiene la estructura y centra los datos en el valor 0 [@van_den_berg_centering_2006].
+Luego, se procede a realizar una exploración univariable a través de boxplot con el package *POMA* [@POMA]. Además, se comparará visualmente los datos normalizados y sin normalizar debido a la alta  heterogeneidad que presentan. En la figura \@ref(fig:boxplot) se observa que el rango de los datos es muy amplio y hay datos que pueden ser posibles outliers. Por lo tanto, se hace una transformación de los datos a través del método de Pareto con la finalidad de reducir la importancia de valores grandes, mantiene la estructura y centra los datos en el valor 0 [@van_den_berg_centering_2006].
 
-```{r boxplot, fig.cap="Boxplot sin normalizar de las muestras.", echo=FALSE ,include=TRUE, fig.show = 'hold'}
+```{r boxplot, fig.cap="Boxplot de las variables sin transformar y transformadas.", echo=FALSE ,include=TRUE, fig.show = 'hold', out.width = '50%'}
 
 library(ggplot2)
 # Exploración inicial de los datos
@@ -201,13 +154,6 @@ sePareto <- se_noNAs %>% PomaNorm(method = "log_pareto")
 PomaBoxplots(sePareto, x = "features") + labs(x="Variables", title = "Variables transformadas") + theme(axis.text.x = element_text(size = 6))
 ```
 
-```{r guardar-datos, eval=FALSE, include=FALSE}
-# Guarda el archivo modificado en formato binario de SummarizExperiment
-save(sePareto, file='sePareto.rda')
-```
-
-
-Como en el gráfico de cajas se observan posibles valores extremos o outliers se decide eliminarlos de los datos a través de la función *PomaOutliers* que utiliza el método MDS. Eliminando del dataset un total de `r dim(assay(sePareto))[2] - dim(assay(se_clean$data))[2]` muestras.
 
 ```{r outliers}
 sePareto$Class <- as.factor(sePareto$Class)
@@ -215,6 +161,16 @@ sePareto$SampleType <- as.factor(sePareto$SampleType)
 se2 = sePareto
 colData(se2) <- colData(se2)[, c(3,2)]
 se_clean <- PomaOutliers(data = se2)
+```
+
+Como en el gráfico de cajas se observan posibles valores extremos o outliers se decide eliminarlos de los datos a través de la función *PomaOutliers* que utiliza el método MDS. Eliminando del dataset un total de `r dim(assay(sePareto))[2] - dim(assay(se_clean$data))[2]` muestras.
+
+
+
+```{r guardar-datos, eval=FALSE, include=FALSE}
+# Guarda el archivo modificado en formato binario de SummarizExperiment
+se_guardar = se_clean$data
+save(se_guardar, file='se_clean.rda')
 ```
 
 En la exploración de los datos se realiza una correlación entre las diferentes variables para conocer el nivel de correlación a través de la función *PomaCorr* del paquete @POMA utilizando el método de Spearman porque es más robusto delante de outliers o valores grandes.
@@ -231,35 +187,25 @@ A nivel de técnicias de agrupación se van a realizar dos técnicas no supervis
 
 
 
-
-
-***************************************************
-+ Origen y tipo de datos
-+ Herramientas informáticas y bioinformáticas utilizadas
-+ Procedimiento general del análisis
-+ métodos utilizados
-+ extensión 2 páginas máximo
-*******************************************************
-
-# Resutlados
+# Resultados
 
 ```{r p-value-corr, tab.cap="Número de relaciones con p-values significativo entre metabolitos. True: *p-value* singnificativo; False: *p-value* no significativo."}
 tabla_cor = data.frame(table(correlacion$correlations$pvalue <= 0.05))
 kable(tabla_cor)
 ```
 
-En la exploración de la correlación de las diferentes variables se observa que la mayoría de metabolitos tienen una correlación positiva entre ellos (Figura \label{fig:correlacion}). Si se explora los *p-value* se observa que hay `r tabla_cor[2,2]` pares de metabolitos con una correlación significativa entre ellos. En cambio, `r tabla_cor[1,2]` pares de metabolitos no tienen un valor significativo.
+En la exploración de la correlación de las diferentes variables se observa que la mayoría de metabolitos tienen una correlación positiva entre ellos (Figura \@ref(fig:correlacion)). Si se explora los *p-value* se observa que hay `r tabla_cor[2,2]` pares de metabolitos con una correlación significativa entre ellos. En cambio, `r tabla_cor[1,2]` pares de metabolitos no tienen un valor significativo.
 
-```{r correlacion, fig.cap="Heatmap donde se correlacionan los diferentes metabolitos", echo=TRUE ,include=TRUE}
+```{r correlacion, fig.cap="Heatmap que correlaciona los diferentes metabolitos.", echo=FALSE ,include=TRUE}
 correlacion$corrplot
 ```
 
 
 
+ 
 
 
-
-```{r barplotPCA, fig.cap="Gráfico de barras con la acumulación de la varianza de cada componente principal.", fig.height=6, echo=FALSE ,include=TRUE}
+```{r barplotPCA, fig.cap="Gráfico de barras con la acumulación de la varianza de cada componente principal.", fig.height=4, fig.width=6, echo=FALSE ,include=TRUE}
 # PCA. No se centran los datos porque ya estan centrados previamente
 PCA = PomaPCA(data = se_clean$data, center = FALSE, ncomp = 135, labels = FALSE)
 etiq = PCA$eigenvalues$comp
@@ -267,7 +213,7 @@ valor_vector = PCA$eigenvalues$var_exp
 barplot(valor_vector[1:20], names.arg = etiq[1:20], main = "Variabilidad acumulada en PC", xlab = "Componentes principales", ylab = "Eigenvalues")
 ```
 
-La PCA muestra que la mayoría de la variabilidad está retenida en las dos primeras componentes principales (Figura \label{fig:barplotPCA}), a pesar de que  solo recogen el `r valor_vector[1] + valor_vector[2]`% de la varianza explicada. 
+La PCA muestra que la mayoría de la variabilidad está retenida en las dos primeras componentes principales (Figura \@ref(fig:barplotPCA)), a pesar de que  solo recogen el `r valor_vector[1] + valor_vector[2]`% de la varianza explicada.
 
 Al analizar conjuntamente las dos primeras componentes principales se observa en el centro el grupo de control, mientras que el resto de la muestra está más distribuido en el espacio de las dos primeras componentes principales. Sin embargo, en el primer componente parece que las muestras analizadas con tumor benigno se sitúen a la derecha de la gráfica mientras que el resto de casos ocupan el resto del eje. Por otro lado, en el segundo componente se diferencie ligeramente el grupo de individuos sanos (situados mayoritariamente en la mitad inferior de la gráfica) respecto al grupo que presenta un tumor, ya sea maligno o benigno (mayoritariamente en la mitad superior de la gráfica). 
 
@@ -277,16 +223,16 @@ Clases = se_clean$data$class
 ggplot(data = PCA$factors, aes(PC1, PC2, colour = Clases)) + geom_point() + labs(x=paste("PC1 (",valor_vector[1], "%)"), y= paste("PC2 (",valor_vector[2],"%)"))
 ```
 
-Al explorar las posibles agrupaciones a través del método de k-means se observa la diferenciación de tres grupos (número óptimo de agrupaciones), pero no parece que ofrezca información relevante para el estudio que se está realizando porque no se observa ninguna asociación con los datos obtenidos a través de la PCA. En cambio, si se realiza la agrupación con 4 núcleos el grupo control está bastante bien identificado, mientras que la diferenciación entre grupos comentada anteriormente en el eje del primer componente principal parece que este aquí más definida (Figura \label{fig:k-means}). 
+Al explorar las posibles agrupaciones a través del método de k-means se observa la diferenciación de tres grupos (número óptimo de agrupaciones, Figura \@ref(fig:optimal-k)), pero no parece que ofrezca información relevante para el estudio que se está realizando porque no se observa ninguna asociación con los datos obtenidos a través de la PCA. En cambio, si se realiza la agrupación con 4 núcleos el grupo control está bastante bien identificado, mientras que la diferenciación entre grupos comentada anteriormente en el eje del primer componente principal parece que este aquí más definida (Figura \@ref(fig:kmeans)) . 
 
-```{r k-means, fig.cap="Agrupación a través del método k-means con 3 y 4 núcleos", , echo=FALSE, include=TRUE}
+```{r kmeans, fig.cap="Agrupación a través del método k-means con 3 y 4 núcleos", echo=FALSE, include=TRUE, fig.show = 'hold', out.width = '50%'}
 cluster = PomaClust(se_clean$data, k_max = sqrt(135), show_clusters = TRUE)
 cluster$mds_plot
 cluster4 = PomaClust(se_clean$data, k=4)
 cluster4$mds_plot
 ```
 
-A través de los dendogramas también se puede analizar cómo se agrupan los datos. En el caso de la agrupación a través de las muestras (Figura \label{fig:hcluster-muestras}) se observan 4 grupos que se podrían corresponder a las diferentes clases de muestras que hay. Por lo tanto, el número de grupos podría coincidir con el número de clases que hay. En cambio, en el caso de los metabolitos, se observa la formación de 4 o 5 grupos.
+A través de los dendogramas también se puede analizar cómo se agrupan los datos. En el caso de la agrupación a través de las muestras (Figura \@ref(fig:hcluster-muestras)) se observan 4 grupos que se podrían corresponder a las diferentes clases de muestras que hay. Por lo tanto, el número de grupos podría coincidir con el número de clases que hay. En cambio, en el caso de los metabolitos (Figura \@ref(fig:hcluster-metabo)), se observa la formación de 4 o 5 grupos.
 
 ```{r hcluster-muestras, fig.cap="Dendograma en el que se agrupan las diferentes muestras", echo=FALSE, include=TRUE}
 corr2 = cor(t(assay(se_clean$data)), method = "spearman")
@@ -303,12 +249,6 @@ hc_metabo = hclust(distancias_metabo, method = "average")
 ggdendrogram(hc_metabo)+labs(title = "Agrupación por metabolitos") + theme(axis.text.x = element_text(size = 6))
 ```
 
-************************************************
-+ Responden a las preguntas plantadas
-+ Texto legible y fácil de seguir
-+ Plantearse que código de tablas y gráficos de R se debe mostrar en el informe
-+ Extensión de 5 a 10 páginas
-***********************************************
 
 # Discusión
 
@@ -322,9 +262,9 @@ En las diferentes exploraciones realizadas, tanto en k-means como en los dendrog
 
 Para acabar, faltaría estudiar que metabolitos son más relevantes o muestran una mayor asociación con el cáncer gástrico. Para hacer esto sería necesario ver que correlación muestran los diferentes metabolitos con la presencia de la enfermedad. O mejor aún, la combinación de ellos. En consecuencia, sería necesario utilizar otro tipo de técnicas multivariantes que reduzcan el número de variables a parte de la PCA. Esto, por ejemplo, se podría examinar a través de una regresión lineal cualitativa utilizando como predictor la presencia de cáncer mientras se combina con técnicas que reduzcan el número de variables, por ejemplo: LASSO, Partial Least Squares (PLS), etc. 
 
-# Apéndice 1. Selección del número adecuado de grupos en clasificación k-means
+# Apéndice 1. Selección del número adecuado de grupos en la clasificación k-means
 
-```{r optimal-k, fig.cap="Número óptimo de núcleos para k-means", echo=FALSE, include=TRUE}
+```{r optimal-k, fig.cap="Número óptimo de núcleos para k-means", echo=FALSE, include=TRUE, fig.height=4, fig.width=6}
 cluster$optimal_clusters_plot
 ```
 
